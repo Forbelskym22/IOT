@@ -1,4 +1,6 @@
 Hodnocení úkolu
-Úkol působil spíše jako návod než samotné zadání.
-Dalo se to brát jako doporučení co dělat s ukázkovým kódem, ale osobně bych preferoval čisté zadání třeba i s více podúkoly.
-Při předání takového zadání bez bližších informací by mohlo dojít ke zmatení.
+Úkol působil spíše víc osekané zadání.
+Zadání mělo přes tisíc řádků přičemž samotné úkoly nezabírali ani čtvrtinu souboru.
+Možná bych dodal ještě jeden detail, ale zadání by šlo lépe zformátovat.
+
+plnil jsem úkoly 1.A, 1.B, 4 a následně i 6
