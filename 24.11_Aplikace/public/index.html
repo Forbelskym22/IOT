@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LED Control</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-16">
+        <div class="max-w-md mx-auto bg-white rounded-lg shadow-lg p-8">
+            <h1 class="text-3xl font-bold text-gray-800 mb-8 text-center">LED Control Panel</h1>
+            
+            <div class="flex justify-center gap-4">
+                <button 
+                    onclick="controlLED('on')" 
+                    class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-200">
+                    Turn ON
+                </button>
+                <button 
+                    onclick="controlLED('off')" 
+                    class="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-200">
+                    Turn OFF
+                </button>
+            </div>
+
+            <div class="mt-8 pt-8 border-t-2 border-gray-200">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">UART Configuration</h2>
+                <div class="space-y-4">
+                    <div class="flex gap-2">
+                        <select 
+                            id="portSelect" 
+                            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Select a port...</option>
+                        </select>
+                        <button 
+                            onclick="refreshPorts()" 
+                            class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200">
+                            Refresh
+                        </button>
+                        <button 
+                            onclick="connectPort()" 
+                            class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-6 rounded-lg transition-colors duration-200">
+                            Connect
+                        </button>
+                    </div>
+                    <div id="portStatus" class="text-sm text-gray-600"></div>
+                </div>
+            </div>
+
+            <div class="mt-8 pt-8 border-t-2 border-gray-200">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">UART Message</h2>
+                <div class="flex gap-2">
+                    <input 
+                        type="text" 
+                        id="uartMessage" 
+                        placeholder="Enter message..." 
+                        class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <button 
+                        onclick="sendUART()" 
+                        class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg transition-colors duration-200">
+                        Send
+                    </button>
+                </div>
+            </div>
+
+            <div id="status" class="mt-6 text-center text-gray-600 hidden">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load available ports on page load
+        window.addEventListener('load', () => {
+            refreshPorts();
+        });
+
+        function refreshPorts() {
+            fetch('/api/ports')
+                .then(response => response.json())
+                .then(data => {
+                    const select = document.getElementById('portSelect');
+                    const status = document.getElementById('portStatus');
+                    
+                    select.innerHTML = '<option value="">Select a port...</option>';
+                    
+                    if (data.ports.length === 0) {
+                        status.textContent = '⚠️ No serial ports found. Please check your UART connection.';
+                        status.className = 'text-sm text-red-600';
+                    } else {
+                        data.ports.forEach(port => {
+                            const option = document.createElement('option');
+                            option.value = port;
+                            option.textContent = port;
+                            if (data.currentPort === port) {
+                                option.selected = true;
+                            }
+                            select.appendChild(option);
+                        });
+                        
+                        if (data.isConnected) {
+                            status.textContent = `✓ Connected to ${data.currentPort}`;
+                            status.className = 'text-sm text-green-600';
+                        } else {
+                            status.textContent = '○ Select and connect to a port';
+                            status.className = 'text-sm text-gray-600';
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('portStatus').textContent = 'Error loading ports';
+                });
+        }
+
+        function connectPort() {
+            const portSelect = document.getElementById('portSelect');
+            const port = portSelect.value;
+            
+            if (!port) {
+                alert('Please select a port');
+                return;
+            }
+            
+            fetch(`/api/connect?port=${encodeURIComponent(port)}&baudRate=9600`)
+                .then(response => response.json())
+                .then(data => {
+                    const status = document.getElementById('status');
+                    status.textContent = data.status === 'Connected' 
+                        ? `✓ Connected to ${port}` 
+                        : `✗ Failed to connect: ${data.message}`;
+                    status.className = 'mt-6 text-center ' + 
+                        (data.status === 'Connected' ? 'text-green-600' : 'text-red-600');
+                    status.classList.remove('hidden');
+                    
+                    if (data.status === 'Connected') {
+                        refreshPorts();
+                    }
+                    
+                    setTimeout(() => {
+                        status.classList.add('hidden');
+                    }, 2000);
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function controlLED(action) {
+            fetch(`/led/${action}`)
+                .then(response => response.json())
+                .then(data => {
+                    const status = document.getElementById('status');
+                    status.textContent = data.status;
+                    status.className = 'mt-6 text-center ' + 
+                        (action === 'on' ? 'text-green-600' : 'text-red-600');
+                    status.classList.remove('hidden');
+                    setTimeout(() => {
+                        status.classList.add('hidden');
+                    }, 2000);
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function sendUART() {
+            const message = document.getElementById('uartMessage').value;
+            if (!message.trim()) {
+                alert('Please enter a message');
+                return;
+            }
+
+            fetch(`/uart/send?message=${encodeURIComponent(message)}`)
+                .then(response => response.json())
+                .then(data => {
+                    const status = document.getElementById('status');
+                    if (data.status.startsWith('Error')) {
+                        status.textContent = data.error || data.status;
+                        status.className = 'mt-6 text-center text-red-600';
+                    } else {
+                        status.textContent = data.status + ': ' + data.message;
+                        status.className = 'mt-6 text-center text-blue-600';
+                    }
+                    status.classList.remove('hidden');
+                    document.getElementById('uartMessage').value = '';
+                    setTimeout(() => {
+                        status.classList.add('hidden');
+                    }, 2000);
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        // Allow sending message with Enter key
+        document.getElementById('uartMessage').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendUART();
+            }
+        });
+    </script>
+</body>
+</html>

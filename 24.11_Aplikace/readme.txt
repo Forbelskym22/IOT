@@ -1,0 +1,1 @@
+rozsvícení a zhasnutí LED pomocí Node.js a weboveho rozhrani na localhostu (pomoci tlacitek vypnout a zapnout)
