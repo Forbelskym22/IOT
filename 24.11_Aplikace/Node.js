@@ -13,30 +13,41 @@ let uartPort = null;
 let availablePorts = [];
 let uartMessages = []; // Store messages for testing
 
-// Function to get available serial ports
+// --- UPDATED: Function to get available serial ports ---
 async function getAvailablePorts() {
     try {
+        // 1. Ask the OS what it sees
         const ports = await SerialPort.list();
-        availablePorts = ports.map(p => p.path);
+        let detectedPaths = ports.map(p => p.path);
+        
+        // 2. FORCE ADD the Raspberry Pi specific UARTs
+        // Even if SerialPort.list() misses them, we know they exist because of your config.
+        const knownPiPorts = [
+            '/dev/serial0',  // The default (Pins 8 & 10)
+            '/dev/ttyAMA1',  // Likely UART 2 (Pins 27 & 28)
+            '/dev/ttyAMA2',  // Likely UART 3 (Pins 7 & 29)
+            '/dev/ttyAMA3'   // Just in case
+        ];
+
+        // 3. Merge lists and remove duplicates
+        availablePorts = [...new Set([...detectedPaths, ...knownPiPorts])];
+        
         console.log('Available ports:', availablePorts);
-        
-        // If no ports found, add demo port for testing
-        if (availablePorts.length === 0) {
-            console.log('No real ports found. Available for demo: /dev/ttyDEMO');
-            availablePorts = ['/dev/ttyDEMO'];
-        }
-        
         return availablePorts;
+
     } catch (err) {
         console.log('Error listing ports:', err.message);
-        return ['/dev/ttyDEMO'];
+        // Fallback
+        return ['/dev/serial0', '/dev/ttyAMA1', '/dev/ttyAMA2'];
     }
 }
 
 // Function to connect to UART port
 function connectToUART(portPath, baudRate = 9600) {
     try {
+        // Close existing port if open
         if (uartPort && uartPort.isOpen) {
+            console.log(`Closing previous port: ${uartPort.path}`);
             uartPort.close();
         }
         
@@ -46,21 +57,27 @@ function connectToUART(portPath, baudRate = 9600) {
                 path: portPath,
                 isOpen: true,
                 write: (data, callback) => {
-                    console.log(`[DEMO UART ${portPath}] Sent: ${data}`);
+                    console.log(`[DEMO] Sent: ${data}`);
                     uartMessages.push(data);
                     if (callback) callback(null);
                 }
             };
-            console.log('Connected to DEMO UART port:', portPath);
             return true;
         }
         
+        // Create new connection
+        console.log(`Attempting to connect to ${portPath} at ${baudRate}...`);
         uartPort = new SerialPort({ path: portPath, baudRate: baudRate });
         
         uartPort.on('open', () => {
-            console.log('UART port opened:', portPath);
+            console.log('SUCCESS: UART port opened:', portPath);
         });
         
+        // Added: Listen for incoming data from Pico
+        uartPort.on('data', (data) => {
+            console.log('Data from Pico:', data.toString());
+        });
+
         uartPort.on('error', (err) => {
             console.log('UART Error:', err.message);
         });
