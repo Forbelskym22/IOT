@@ -5,14 +5,17 @@ const config = require('./src/config/server');
 // Import Models
 const LedModel = require('./src/models/LedModel');
 const UartModel = require('./src/models/UartModel');
+const DualUartModel = require('./src/models/DualUartModel');
 
 // Import Controllers
 const LedController = require('./src/controllers/LedController');
 const UartController = require('./src/controllers/UartController');
+const DualUartController = require('./src/controllers/DualUartController');
 
 // Import Routes
 const ledRoutes = require('./src/routes/ledRoutes');
 const uartRoutes = require('./src/routes/uartRoutes');
+const dualUartRoutes = require('./src/routes/dualUartRoutes');
 
 // Initialize Express app
 const app = express();
@@ -20,10 +23,12 @@ const app = express();
 // Initialize Models
 const ledModel = new LedModel(config.ledPin);
 const uartModel = new UartModel();
+const dualUartModel = new DualUartModel();
 
 // Initialize Controllers
 const ledController = new LedController(ledModel);
 const uartController = new UartController(uartModel);
+const dualUartController = new DualUartController(dualUartModel);
 
 // Initialize available ports on startup
 uartModel.getAvailablePorts();
@@ -35,10 +40,16 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/led', ledRoutes(ledController));
 app.use('/api', uartRoutes(uartController));
 app.use('/uart', uartRoutes(uartController));
+app.use('/dual-uart', dualUartRoutes(dualUartController));
 
 // Route for home page
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Route for dual UART page
+app.get('/dual-uart-page', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'dual-uart.html'));
 });
 
 // Start server
